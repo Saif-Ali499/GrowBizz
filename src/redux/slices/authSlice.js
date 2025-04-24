@@ -5,7 +5,10 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+
 const auth = getAuth();
+
 export const registerUser = createAsyncThunk(
   'auth/registerUser',
   async ({email, password, role, userName}, thunkAPI) => {
@@ -15,16 +18,21 @@ export const registerUser = createAsyncThunk(
         email,
         password,
       );
-      console.log('User account created & signed in!', userCredential.user);
+      const { uid }  = userCredential.user;
 
-      return {uid: userCredential.user.uid, email: userCredential.user.email};
+      await firestore()
+        .collection('Users')
+        .doc(uid)
+        .set({
+          uid,
+          email,
+          userName,
+          role,
+          createdAt: firestore.FieldValue.serverTimestamp(),
+        });
+
+      return {uid, email, userName, role};
     } catch (error) {
-      if (error.code === 'auth/email-already-in-use') {
-        console.log('That email address is already in use!');
-      } else if (error.code === 'auth/invalid-email') {
-        console.log('That email address is invalid!');
-      }
-
       return thunkAPI.rejectWithValue(error.message);
     }
   },
@@ -39,10 +47,23 @@ export const loginUser = createAsyncThunk(
         email,
         password,
       );
+      const { uid } = userCredential.user;
 
-      return {
-        uid: userCredential.user.uid,
-        email: userCredential.user.email,
+      const userDoc = await firestore()
+        .collection('Users')
+        .doc(uid)
+        .get();
+
+      if (!userDoc.exists) {
+        throw new Error('User data not found');
+      }
+
+      const userData = userDoc.data();
+      return { 
+        uid, 
+        email: userData.email, 
+        userName: userData.userName, 
+        role: userData.role 
       };
     } catch (error) {
       return thunkAPI.rejectWithValue(error.message);
@@ -50,51 +71,64 @@ export const loginUser = createAsyncThunk(
   },
 );
 
-export const logoutUser = createAsyncThunk('auth/logoutUser', async (_, thunkAPI) => {
-  try {
-    await signOut(auth);
-    return null;
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.message);
-  }
-});
+export const logoutUser = createAsyncThunk(
+  'auth/logoutUser',
+  async (_, thunkAPI) => {
+    try {
+      await signOut(auth);
+      return null;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message);
+    }
+  },
+);
 
 const authSlice = createSlice({
   name: 'auth',
-  initialState: {
-    user: null,
-    loading: false,
-    error: null,
-  },
+  initialState: {user: null, loading: false, error: null},
   reducers: {},
   extraReducers: builder => {
     builder
-      .addCase(registerUser.pending, state => {
-        state.loading = true;
-        state.error = null;
+      // register
+      .addCase(registerUser.pending, s => {
+        s.loading = true;
+        s.error = null;
       })
-      .addCase(registerUser.fulfilled, (state, action) => {
-        state.user = action.payload;
-        state.loading = false;
+      .addCase(registerUser.fulfilled, (s, a) => {
+        s.user = a.payload;
+        s.loading = false;
       })
-      .addCase(registerUser.rejected, (state, action) => {
-        state.error = action.payload;
-        state.loading = false;
+      .addCase(registerUser.rejected, (s, a) => {
+        s.error = a.payload;
+        s.loading = false;
       })
-      .addCase(loginUser.pending, state => {
-        state.loading = true;
-        state.error = null;
+
+      // login
+      .addCase(loginUser.pending, s => {
+        s.loading = true;
+        s.error = null;
       })
-      .addCase(loginUser.fulfilled, (state, action) => {
-        state.user = action.payload;
-        state.loading = false;
+      .addCase(loginUser.fulfilled, (s, a) => {
+        s.user = a.payload;
+        s.loading = false;
       })
-      .addCase(loginUser.rejected, (state, action) => {
-        state.error = action.payload;
-        state.loading = false;
+      .addCase(loginUser.rejected, (s, a) => {
+        s.error = a.payload;
+        s.loading = false;
       })
-      .addCase(logoutUser.fulfilled, state => {
-        state.user = null;
+
+      // logout
+      .addCase(logoutUser.pending, s => {
+        s.loading = true;
+        s.error = null;
+      })
+      .addCase(logoutUser.fulfilled, s => {
+        s.user = null;
+        s.loading = false;
+      })
+      .addCase(logoutUser.rejected, (s, a) => {
+        s.error = a.payload;
+        s.loading = false;
       });
   },
 });

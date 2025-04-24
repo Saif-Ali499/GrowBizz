@@ -40,7 +40,6 @@ export const RegisterScreen = () => {
     }
 
     try {
-      // Dispatch registration action and wait for completion
       await dispatch(registerUser({ email, password, role, userName })).unwrap();
       alert('Registration successful! Please login');
 

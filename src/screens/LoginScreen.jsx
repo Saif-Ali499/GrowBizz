@@ -27,9 +27,9 @@ export const LoginScreen = () => {
     }
 
     try {
-      await dispatch(loginUser({email, password})).unwrap();
-      alert('Login successful!');
-      navigation.navigate('FarmersHome');
+        const loggedIn = await dispatch(loginUser({ email, password })).unwrap();
+        alert('login Succrssful')
+        navigation.navigate(loggedIn.role === 'Farmer' ? 'FarmersHome' : 'MerchantsHome')
     } catch (error) {
       alert(error);
     }
@@ -70,7 +70,7 @@ export const LoginScreen = () => {
         )}
 
         <TouchableOpacity
-          onPress={() => alert('LoginScreen')}
+          onPress={() => navigation.navigate("RegisterScreen")}
           style={styles.loginLink}>
           <Text style={styles.loginText}>Create an Account or SignUp</Text>
         </TouchableOpacity>
