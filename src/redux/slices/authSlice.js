@@ -4,11 +4,21 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
+  sendPasswordResetEmail,
 } from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  serverTimestamp,
+} from '@react-native-firebase/firestore';
 
+// Initialize Firebase services
 const auth = getAuth();
+const firestore = getFirestore();
 
+// register function
 export const registerUser = createAsyncThunk(
   'auth/registerUser',
   async ({email, password, role, userName}, thunkAPI) => {
@@ -18,18 +28,15 @@ export const registerUser = createAsyncThunk(
         email,
         password,
       );
-      const { uid }  = userCredential.user;
+      const {uid} = userCredential.user;
 
-      await firestore()
-        .collection('Users')
-        .doc(uid)
-        .set({
-          uid,
-          email,
-          userName,
-          role,
-          createdAt: firestore.FieldValue.serverTimestamp(),
-        });
+      await setDoc(doc(firestore, 'Users', uid), {
+        uid,
+        email,
+        userName,
+        role,
+        createdAt: serverTimestamp(),
+      });
 
       return {uid, email, userName, role};
     } catch (error) {
@@ -38,33 +45,81 @@ export const registerUser = createAsyncThunk(
   },
 );
 
+//Log in function
 export const loginUser = createAsyncThunk(
   'auth/loginUser',
-  async ({email, password}, thunkAPI) => {
+  async ({ email, password }, thunkAPI) => {
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-      const { uid } = userCredential.user;
+      // Initialize Firebase services
+      const auth = getAuth();
+      const db = getFirestore();
 
-      const userDoc = await firestore()
-        .collection('Users')
-        .doc(uid)
-        .get();
+      // User authentication
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Email verification check
+      if (!user.emailVerified) {
+        await user.sendEmailVerification();
+        throw new Error('Email not verified. Verification email resent.');
+      }
+
+      // Fetch user data from Firestore
+      const userDocRef = doc(db, 'Users', user.uid);
+      const userDoc = await getDoc(userDocRef);
 
       if (!userDoc.exists) {
         throw new Error('User data not found');
       }
 
-      const userData = userDoc.data();
-      return { 
-        uid, 
-        email: userData.email, 
-        userName: userData.userName, 
-        role: userData.role 
+      // Combine auth and Firestore data
+      return {
+        uid: user.uid,
+        email: user.email,
+        ...userDoc.data(),
+        emailVerified: user.emailVerified
       };
+
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message);
+    }
+  }
+)
+
+export const sendVerificationEmail = createAsyncThunk(
+  'auth/sendVerificationEmail',
+  async (_, thunkAPI) => {
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        await user.sendEmailVerification();
+        return 'Verification email sent successfully';
+      }
+      throw new Error('No user logged in');
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message);
+    }
+  },
+);
+
+export const checkEmailVerification = createAsyncThunk(
+  'auth/checkEmailVerification',
+  async (_, thunkAPI) => {
+    try {
+      await auth.currentUser.reload();
+      return auth.currentUser.emailVerified;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message);
+    }
+  },
+);
+
+export const forgotPassword = createAsyncThunk(
+  'auth/forgotPassword',
+  async (email, thunkAPI) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return 'Password reset email sent successfully';
     } catch (error) {
       return thunkAPI.rejectWithValue(error.message);
     }
@@ -83,54 +138,100 @@ export const logoutUser = createAsyncThunk(
   },
 );
 
+export const fetchUserData = createAsyncThunk(
+  'auth/fetchUserData',
+  async (uid, thunkAPI) => {
+    try {
+      const userDoc = await getDoc(doc(firestore, 'Users', uid));
+      if (!userDoc.exists) {
+        throw new Error('User data not found');
+      }
+      return userDoc.data();
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message);
+    }
+  },
+);
+
 const authSlice = createSlice({
   name: 'auth',
-  initialState: {user: null, loading: false, error: null},
-  reducers: {},
+  initialState: {
+    user: null,
+    loading: false,
+    error: null,
+  },
+  reducers: {
+    clearUser: state => {
+      state.user = null;
+    },
+  },
   extraReducers: builder => {
+    // Shared handler functions
+    const handlePending = state => {
+      state.loading = true;
+      state.error = null;
+    };
+
+    const handleRejected = (state, action) => {
+      state.loading = false;
+      state.error = action.payload;
+    };
+
     builder
-      // register
-      .addCase(registerUser.pending, s => {
-        s.loading = true;
-        s.error = null;
+      // Register User
+      .addCase(registerUser.pending, handlePending)
+      .addCase(registerUser.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.loading = false;
       })
-      .addCase(registerUser.fulfilled, (s, a) => {
-        s.user = a.payload;
-        s.loading = false;
+      .addCase(registerUser.rejected, handleRejected)
+
+      // Login User
+      .addCase(loginUser.pending, handlePending)
+      .addCase(loginUser.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.loading = false;
       })
-      .addCase(registerUser.rejected, (s, a) => {
-        s.error = a.payload;
-        s.loading = false;
+      .addCase(loginUser.rejected, handleRejected)
+
+      // Logout User
+      .addCase(logoutUser.pending, handlePending)
+      .addCase(logoutUser.fulfilled, state => {
+        state.user = null;
+        state.loading = false;
+      })
+      .addCase(logoutUser.rejected, handleRejected)
+
+      // Send Verification Email
+      .addCase(sendVerificationEmail.pending, handlePending)
+      .addCase(sendVerificationEmail.fulfilled, state => {
+        state.loading = false;
+      })
+      .addCase(sendVerificationEmail.rejected, handleRejected)
+
+      // Forgot Password
+      .addCase(forgotPassword.pending, handlePending)
+      .addCase(forgotPassword.fulfilled, state => {
+        state.loading = false;
+      })
+      .addCase(forgotPassword.rejected, handleRejected)
+
+      // Check Email Verification
+      .addCase(checkEmailVerification.fulfilled, (state, action) => {
+        if (action.payload && state.user) {
+          state.user.emailVerified = true;
+        }
       })
 
-      // login
-      .addCase(loginUser.pending, s => {
-        s.loading = true;
-        s.error = null;
+      // Fetch User Data
+      .addCase(fetchUserData.pending, handlePending)
+      .addCase(fetchUserData.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.loading = false;
       })
-      .addCase(loginUser.fulfilled, (s, a) => {
-        s.user = a.payload;
-        s.loading = false;
-      })
-      .addCase(loginUser.rejected, (s, a) => {
-        s.error = a.payload;
-        s.loading = false;
-      })
-
-      // logout
-      .addCase(logoutUser.pending, s => {
-        s.loading = true;
-        s.error = null;
-      })
-      .addCase(logoutUser.fulfilled, s => {
-        s.user = null;
-        s.loading = false;
-      })
-      .addCase(logoutUser.rejected, (s, a) => {
-        s.error = a.payload;
-        s.loading = false;
-      });
+      .addCase(fetchUserData.rejected, handleRejected);
   },
 });
 
 export default authSlice.reducer;
+export const {clearUser} = authSlice.actions;

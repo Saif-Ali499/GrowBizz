@@ -1,15 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TextInput, Button, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
-import { Dropdown } from 'react-native-element-dropdown';
-import { useNavigation } from '@react-navigation/native';
+import React, {useState, useEffect} from 'react';
+import {
+  View,
+  StyleSheet,
+  TextInput,
+  Button,
+  TouchableOpacity,
+  Text,
+  ActivityIndicator,
+} from 'react-native';
+import {Dropdown} from 'react-native-element-dropdown';
+import {useNavigation} from '@react-navigation/native';
 
-import { useDispatch, useSelector } from 'react-redux';
-import { registerUser, clearError } from '../redux/slices/authSlice';
+import {useDispatch, useSelector} from 'react-redux';
+import {registerUser, clearError} from '../redux/slices/authSlice';
 
-export const RegisterScreen = () => {
-  const navigation = useNavigation()
+const RegisterScreen = () => {
+  const navigation = useNavigation();
   const dispatch = useDispatch();
-  const { loading, error } = useSelector((state) => state.auth);
+  const {loading, error} = useSelector(state => state.auth);
 
   const [email, setEmail] = useState('');
   const [userName, setUserName] = useState('');
@@ -19,8 +27,8 @@ export const RegisterScreen = () => {
   const [isFocus, setIsFocus] = useState(false);
 
   const roleData = [
-    { label: 'Farmer', value: 'Farmer' },
-    { label: 'Merchant', value: 'Merchant' },
+    {label: 'Farmer', value: 'Farmer'},
+    {label: 'Merchant', value: 'Merchant'},
   ];
 
   const handleRegister = async () => {
@@ -40,13 +48,12 @@ export const RegisterScreen = () => {
     }
 
     try {
-      await dispatch(registerUser({ email, password, role, userName })).unwrap();
+      await dispatch(registerUser({email, password, role, userName})).unwrap();
       alert('Registration successful! Please login');
 
-      navigation.navigate("LoginScreen")
+      navigation.navigate('LoginScreen');
     } catch (error) {
-
-      alert("error")
+      alert('error');
     }
   };
 
@@ -75,7 +82,6 @@ export const RegisterScreen = () => {
           value={password}
           onChangeText={setPassword}
           style={styles.input}
-          secureTextEntry
           autoCapitalize="none"
         />
 
@@ -89,7 +95,7 @@ export const RegisterScreen = () => {
         />
 
         <Dropdown
-          style={[styles.dropdown, isFocus && { borderColor: '#007bff' }]}
+          style={[styles.dropdown, isFocus && {borderColor: '#007bff'}]}
           placeholder="Select Role"
           data={roleData}
           labelField="label"
@@ -101,7 +107,7 @@ export const RegisterScreen = () => {
             setRole(item.value);
             setIsFocus(false);
           }}
-          renderItem={(item) => (
+          renderItem={item => (
             <View style={styles.dropdownItem}>
               <Text style={styles.dropdownText}>{item.label}</Text>
             </View>
@@ -121,10 +127,9 @@ export const RegisterScreen = () => {
           />
         )}
 
-        <TouchableOpacity 
-          onPress={() => alert('LoginScreen')}
-          style={styles.loginLink}
-        >
+        <TouchableOpacity
+          onPress={() => navigation.navigate('LoginScreen')}
+          style={styles.loginLink}>
           <Text style={styles.loginText}>
             Already have an account? Login here
           </Text>
@@ -146,7 +151,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 3,
@@ -190,3 +195,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+
+export default RegisterScreen;

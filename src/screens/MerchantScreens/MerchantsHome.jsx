@@ -1,12 +1,34 @@
-import { View, Text } from 'react-native'
-import React from 'react'
-
+import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
+import React from 'react';
+import {logoutUser} from '../../redux/slices/authSlice';
+import {useNavigation} from '@react-navigation/native';
+import {useDispatch} from 'react-redux';
 const MerchantsHome = () => {
+  const dispatch = useDispatch();
+  const navigation = useNavigation();
+  const handleLogout = async () => {
+    await dispatch(logoutUser());
+    alert('you are logged out');
+  };
   return (
     <View>
-      <Text>MerchantsHome</Text>
+      <Text>Merchants Home</Text>
+      <TouchableOpacity onPress={handleLogout} style={styles.SignOutLink}>
+        <Text style={styles.SinOutText}>LogOut</Text>
+      </TouchableOpacity>
     </View>
-  )
-}
+  );
+};
 
-export default MerchantsHome
+styles = StyleSheet.create({
+  SignOutLink: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  SinOutText: {
+    color: '#007bff',
+    fontSize: 16,
+  },
+});
+
+export default MerchantsHome;

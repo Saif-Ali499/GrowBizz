@@ -11,8 +11,7 @@ import {
 import {useDispatch, useSelector} from 'react-redux';
 import {loginUser, clearError} from '../redux/slices/authSlice';
 import {useNavigation} from '@react-navigation/native';
-
-export const LoginScreen = () => {
+const LoginScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const {loading, error} = useSelector(state => state.auth);
@@ -27,9 +26,11 @@ export const LoginScreen = () => {
     }
 
     try {
-        const loggedIn = await dispatch(loginUser({ email, password })).unwrap();
-        alert('login Succrssful')
-        navigation.navigate(loggedIn.role === 'Farmer' ? 'FarmersHome' : 'MerchantsHome')
+      const user = await dispatch(loginUser({email, password})).unwrap();
+      alert('Login successful!');
+      // user.role === 'Farmer'
+      //   ? navigation.navigate('FarmersHome')
+      //   : navigation.navigate('MerchantsHome');
     } catch (error) {
       alert(error);
     }
@@ -135,3 +136,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+
+export default LoginScreen;
