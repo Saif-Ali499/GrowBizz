@@ -13,6 +13,12 @@ const FarmersHome = () => {
   return (
     <View>
       <Text>FarmersHome</Text>
+
+      <TouchableOpacity
+        onPress={() => navigation.navigate('FarmerUploadScreen')}
+        style={styles.SignOutLink}>
+        <Text style={styles.SinOutText}>upload Product</Text>
+      </TouchableOpacity>
       <TouchableOpacity onPress={handleLogout} style={styles.SignOutLink}>
         <Text style={styles.SinOutText}>LogOut</Text>
       </TouchableOpacity>

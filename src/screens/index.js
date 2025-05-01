@@ -5,6 +5,8 @@ import FarmersHome from './FarmerScreens/FarmersHome';
 import MerchantsHome from './MerchantScreens/MerchantsHome';
 import ForgotPasswordScreen from './ForgotPasswordScreen';
 import VerifyEmailScreen from './VerifyEmailScreen';
+import FarmerUploadScreen from './FarmerScreens/FarmerUploadScreen';
+import MerchantProductScreen from './MerchantScreens/MerchantProductScreen';
 export {
   LoginScreen,
   RegisterScreen,
@@ -12,4 +14,6 @@ export {
   MerchantsHome,
   ForgotPasswordScreen,
   VerifyEmailScreen,
+  FarmerUploadScreen,
+  MerchantProductScreen
 };

@@ -12,6 +12,8 @@ import {
   FarmersHome,
   ForgotPasswordScreen,
   VerifyEmailScreen,
+  FarmerUploadScreen,
+  MerchantProductScreen,
 } from '../screens';
 
 const Stack = createNativeStackNavigator();
@@ -24,22 +26,33 @@ export default function AppNavigation() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{headerShown: true}}>
+      <Stack.Navigator screenOptions={{headerShown: false}}>
         {user ? (
           user.emailVerified ? (
             user.role === 'Farmer' ? (
+              <>
               <Stack.Screen name="FarmersHome" component={FarmersHome} />
+              <Stack.Screen name="FarmerUploadScreen" component={FarmerUploadScreen} />
+              </>
+              
             ) : (
+              <>
               <Stack.Screen name="MerchantsHome" component={MerchantsHome} />
+              <Stack.Screen name="MerchantProductScreen" component={MerchantProductScreen} />
+
+              </>
+              
             )
           ) : (
             <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+            
           )
         ) : (
           // Unauthenticated screens
           <>
-            <Stack.Screen name="LoginScreen" component={LoginScreen} />
+            <Stack.Screen name="LoginScreen" component={LoginScreen} options={{
+            headerLeft: () => null,
+          }}/>
             <Stack.Screen name="RegisterScreen" component={RegisterScreen} />
             <Stack.Screen
               name="ForgotPassword"
@@ -48,6 +61,5 @@ export default function AppNavigation() {
           </>
         )}
       </Stack.Navigator>
-    </NavigationContainer>
   );
 }

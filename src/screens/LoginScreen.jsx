@@ -28,9 +28,6 @@ const LoginScreen = () => {
     try {
       const user = await dispatch(loginUser({email, password})).unwrap();
       alert('Login successful!');
-      // user.role === 'Farmer'
-      //   ? navigation.navigate('FarmersHome')
-      //   : navigation.navigate('MerchantsHome');
     } catch (error) {
       alert(error);
     }
