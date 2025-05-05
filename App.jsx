@@ -1,24 +1,46 @@
-import { useState } from 'react';  // Add this import
-import {Provider} from 'react-redux';
+import { useState, useEffect } from 'react';
+import { Provider, useDispatch, useSelector } from 'react-redux';
 import store from './src/redux/store';
-import {NavigationContainer} from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import AppNavigation from './src/components/AppNavigation';
 import AuthHandler from './src/components/AuthHandler';
 import SplashScreen from './src/components/SplashScreen';
-
-export default function App() {
+import { setupProductListeners, setupNotificationListener } from './src/redux/slices/productSlice';
+function MainApp() {
+  const dispatch = useDispatch();
+  const user = useSelector(state => state.auth.user);
   const [showSplash, setShowSplash] = useState(true);
 
+  useEffect(() => {
+    if (user) {
+      const productUnsub = dispatch(setupProductListeners(user.uid, user.role));
+      const notificationUnsub = dispatch(setupNotificationListener(user.uid));
+      
+      return () => {
+        productUnsub();
+        notificationUnsub();
+      };
+    }
+  }, [user, dispatch]);
+
+  return (
+    <NavigationContainer>
+      {showSplash ? (
+        <SplashScreen onFinish={() => setShowSplash(false)} />
+      ) : (
+        <>
+          <AppNavigation />
+          {!user && <AuthHandler />}
+        </>
+      )}
+    </NavigationContainer>
+  );
+}
+
+export default function App() {
   return (
     <Provider store={store}>
-      <NavigationContainer>
-        {showSplash ? (
-          <SplashScreen onFinish={() => setShowSplash(false)} />
-        ) : (
-          <AppNavigation />
-        )}
-      </NavigationContainer>
-      <AuthHandler />
+      <MainApp />
     </Provider>
   );
 }

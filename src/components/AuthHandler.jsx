@@ -5,7 +5,6 @@ import { fetchUserData, clearUser } from '../redux/slices/authSlice';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 
 const firestore = getFirestore();
-// AuthHandler.js
 export default function AuthHandler() {
   const dispatch = useDispatch();
   const auth = getAuth();

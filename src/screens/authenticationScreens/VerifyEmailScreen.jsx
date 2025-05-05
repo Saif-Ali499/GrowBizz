@@ -4,13 +4,14 @@ import {useDispatch, useSelector} from 'react-redux';
 import {
   sendVerificationEmail,
   checkEmailVerification,
-} from '../redux/slices/authSlice';
+  logoutUser,
+} from '../../redux/slices/authSlice';
+import { useNavigation } from '@react-navigation/native';
 
-const VerifyEmailScreen = ({navigation}) => {
+const VerifyEmailScreen = () => {
+  const navigation = useNavigation();
   const dispatch = useDispatch();
   const {user, loading, error} = useSelector(state => state.auth);
-
-  // Automatically check verification every 5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       if (user?.emailVerified) {
@@ -37,7 +38,7 @@ const VerifyEmailScreen = ({navigation}) => {
       const verified = await dispatch(checkEmailVerification()).unwrap();
       if (verified) {
         const homeScreen =
-          user.role === 'farmer' ? 'FarmersHome' : 'MerchantsHome';
+          user.role === 'Farmer' ? 'FarmersHome' : 'MerchantsHome';
         navigation.replace(homeScreen);
       }
     } catch (err) {
@@ -69,6 +70,15 @@ const VerifyEmailScreen = ({navigation}) => {
           title="I've Verified My Email"
           onPress={handleCheckVerification}
           color="#28a745"
+          disabled={loading}
+        />
+      </View>
+
+      <View style={styles.buttonContainer}>
+        <Button
+          title="Back To Login"
+          onPress={()=>dispatch(logoutUser())}
+          color="#007bff"
           disabled={loading}
         />
       </View>

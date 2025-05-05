@@ -1,12 +1,17 @@
-
-import LoginScreen from './LoginScreen';
-import RegisterScreen from './RegisterScreen';
+import LoginScreen from './authenticationScreens/LoginScreen';
+import RegisterScreen from './authenticationScreens/RegisterScreen';
 import FarmersHome from './FarmerScreens/FarmersHome';
 import MerchantsHome from './MerchantScreens/MerchantsHome';
-import ForgotPasswordScreen from './ForgotPasswordScreen';
-import VerifyEmailScreen from './VerifyEmailScreen';
-import FarmerUploadScreen from './FarmerScreens/FarmerUploadScreen';
-import MerchantProductScreen from './MerchantScreens/MerchantProductScreen';
+import ForgotPasswordScreen from './authenticationScreens/ForgotPasswordScreen';
+import VerifyEmailScreen from './authenticationScreens/VerifyEmailScreen';
+import UploadProductScreen from './FarmerScreens/UploadProductScreen';
+import NotificationPanel from './commonScreens/NotificationPanel';
+import ProfileScreen from './commonScreens/ProfileScreen';
+import ChatScreen from './commonScreens/ChatScreen';
+
+import ProductDetailBid from './MerchantScreens/ProductDetailBid';
+import ProductListScreen from './MerchantScreens/ProductListScreen';
+
 export {
   LoginScreen,
   RegisterScreen,
@@ -14,6 +19,10 @@ export {
   MerchantsHome,
   ForgotPasswordScreen,
   VerifyEmailScreen,
-  FarmerUploadScreen,
-  MerchantProductScreen
+  UploadProductScreen,
+  NotificationPanel,
+  ProfileScreen,
+  ChatScreen,
+  ProductListScreen,
+  ProductDetailBid,
 };

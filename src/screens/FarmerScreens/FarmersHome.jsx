@@ -1,27 +1,10 @@
 import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
 import React from 'react';
-import {logoutUser} from '../../redux/slices/authSlice';
-import {useNavigation} from '@react-navigation/native';
-import {useDispatch} from 'react-redux';
 const FarmersHome = () => {
-  const dispatch = useDispatch();
-  const navigation = useNavigation();
-  const handleLogout = async () => {
-    await dispatch(logoutUser());
-    alert('you are logged out');
-  };
+
   return (
     <View>
       <Text>FarmersHome</Text>
-
-      <TouchableOpacity
-        onPress={() => navigation.navigate('FarmerUploadScreen')}
-        style={styles.SignOutLink}>
-        <Text style={styles.SinOutText}>upload Product</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={handleLogout} style={styles.SignOutLink}>
-        <Text style={styles.SinOutText}>LogOut</Text>
-      </TouchableOpacity>
     </View>
   );
 };
