@@ -70,6 +70,8 @@ const FarmerTabs = () => (
       tabBarActiveTintColor: 'tomato',
       tabBarInactiveTintColor: 'gray',
       tabBarStyle: {backgroundColor: '#fff', paddingBottom: 5, height: 70},
+      // Hide tab bar when keyboard is open
+      tabBarHideOnKeyboard: true,
       headerShown: false,
     })}>
     <Tab.Screen name="Home" component={FarmersHome} />
@@ -109,6 +111,8 @@ const MerchantTabs = () => (
       tabBarActiveTintColor: 'tomato',
       tabBarInactiveTintColor: 'gray',
       tabBarStyle: {backgroundColor: '#fff', paddingBottom: 5, height: 70},
+      // Hide tab bar when keyboard is open
+      tabBarHideOnKeyboard: true,
       headerShown: false,
     })}>
     <Tab.Screen name="Home" component={MerchantsHome} />

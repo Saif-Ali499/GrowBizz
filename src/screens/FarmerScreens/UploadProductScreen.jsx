@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   Platform,
   ActionSheetIOS,
+  PermissionsAndroid,
 } from 'react-native';
 import {useDispatch, useSelector} from 'react-redux';
 import {uploadProduct} from '../../redux/slices/productSlice';
@@ -29,7 +30,7 @@ const UploadProductScreen = () => {
     description: '',
     startingPrice: '',
     quantity: '',
-    duration: '24',
+    duration: '',
     images: [],
   });
 
@@ -41,6 +42,27 @@ const UploadProductScreen = () => {
     }
   }, [error]);
 
+  // Request CAMERA permission at runtime on Android
+  const requestCameraPermission = async () => {
+    if (Platform.OS !== 'android') return true;
+
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+        {
+          title: 'Camera Permission',
+          message: 'AgriBid needs access to your camera to take product photos',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        }
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+  };
+
   const selectImage = async index => {
     const options = {
       mediaType: 'photo',
@@ -51,10 +73,17 @@ const UploadProductScreen = () => {
 
     const handleSelection = async source => {
       try {
-        const result =
-          source === 'camera'
-            ? await launchCamera(options)
-            : await launchImageLibrary(options);
+        let result;
+        if (source === 'camera') {
+          const hasPerm = await requestCameraPermission();
+          if (!hasPerm) {
+            Alert.alert('Permission Denied', 'Cannot open camera without permission');
+            return;
+          }
+          result = await launchCamera(options);
+        } else {
+          result = await launchImageLibrary(options);
+        }
 
         if (result.didCancel) {
           console.log('User cancelled image picker');
@@ -79,7 +108,7 @@ const UploadProductScreen = () => {
         buttonIndex => {
           if (buttonIndex === 1) handleSelection('camera');
           else if (buttonIndex === 2) handleSelection('gallery');
-        },
+        }
       );
     } else {
       Alert.alert('Select Image', 'Choose image source', [
@@ -142,7 +171,7 @@ const UploadProductScreen = () => {
         }),
       );
 
-      const result = await dispatch(
+      await dispatch(
         uploadProduct({
           farmerId: user.uid,
           productData: {
@@ -157,8 +186,8 @@ const UploadProductScreen = () => {
 
       Alert.alert('Success', 'Product uploaded for bidding!');
       navigation.navigate('Home');
-    } catch (err) {
-      // Error handled in useEffect
+    } catch {
+      // Handled in useEffect
     } finally {
       setUploadProgress(0);
     }
@@ -188,7 +217,7 @@ const UploadProductScreen = () => {
 
       <TextInput
         style={styles.input}
-        placeholder="Expecting Price"
+        placeholder="Basic Price for all Quantity"
         keyboardType="numeric"
         value={productData.startingPrice}
         onChangeText={text =>
@@ -201,7 +230,9 @@ const UploadProductScreen = () => {
         placeholder="Quantity"
         keyboardType="numeric"
         value={productData.quantity}
-        onChangeText={text => setProductData({...productData, quantity: text})}
+        onChangeText={text =>
+          setProductData({...productData, quantity: text})
+        }
       />
 
       <TextInput
@@ -209,7 +240,9 @@ const UploadProductScreen = () => {
         placeholder="Bidding Duration (hours)"
         keyboardType="numeric"
         value={productData.duration}
-        onChangeText={text => setProductData({...productData, duration: text})}
+        onChangeText={text =>
+          setProductData({...productData, duration: text})
+        }
       />
 
       <View style={styles.imageContainer}>
@@ -237,8 +270,7 @@ const UploadProductScreen = () => {
           <Text>Upload Progress: {Math.round(uploadProgress)}%</Text>
           <View style={styles.progressBar}>
             <View
-              style={[styles.progressFill, {width: `${uploadProgress}%`}]}
-            />
+              style={[styles.progressFill, {width: `${uploadProgress}%`}]} />
           </View>
         </View>
       )}
