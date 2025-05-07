@@ -1,3 +1,5 @@
+// src/screens/VerifyEmailScreen.jsx
+
 import React, {useEffect} from 'react';
 import {View, Text, Button, ActivityIndicator, StyleSheet} from 'react-native';
 import {useDispatch, useSelector} from 'react-redux';
@@ -6,23 +8,27 @@ import {
   checkEmailVerification,
   logoutUser,
 } from '../../redux/slices/authSlice';
-import { useNavigation } from '@react-navigation/native';
+import {useNavigation, CommonActions} from '@react-navigation/native';
 
 const VerifyEmailScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const {user, loading, error} = useSelector(state => state.auth);
+  const {user, loading, error} = useSelector(s => s.auth);
+
+  // Poll every 5s; once verified, jump into AppTabs
   useEffect(() => {
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       if (user?.emailVerified) {
-        const homeScreen =
-          user.role === 'farmer' ? 'FarmersHome' : 'MerchantsHome';
-        navigation.replace(homeScreen);
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{name: 'AppTabs'}],
+          }),
+        );
       }
     }, 5000);
-
     return () => clearInterval(interval);
-  }, [user?.emailVerified, user?.role]);
+  }, [user?.emailVerified]);
 
   const handleResendEmail = async () => {
     try {
@@ -37,9 +43,12 @@ const VerifyEmailScreen = () => {
     try {
       const verified = await dispatch(checkEmailVerification()).unwrap();
       if (verified) {
-        const homeScreen =
-          user.role === 'Farmer' ? 'FarmersHome' : 'MerchantsHome';
-        navigation.replace(homeScreen);
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{name: 'AppTabs'}],
+          }),
+        );
       }
     } catch (err) {
       alert(err.message || 'Verification check failed');
@@ -77,7 +86,7 @@ const VerifyEmailScreen = () => {
       <View style={styles.buttonContainer}>
         <Button
           title="Back To Login"
-          onPress={()=>dispatch(logoutUser())}
+          onPress={() => dispatch(logoutUser())}
           color="#007bff"
           disabled={loading}
         />

@@ -24,7 +24,7 @@ const SplashScreen = ({ onFinish }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>AgriBid</Text>
+      <Text style={styles.title}>GrowBizz</Text>
       <Text style={styles.subtitle}>Connecting Farmers and Merchants</Text>
     </View>
   );
@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: "rgba(61, 171, 195, 0.38)",
   },
   title: {
     fontSize: 32,

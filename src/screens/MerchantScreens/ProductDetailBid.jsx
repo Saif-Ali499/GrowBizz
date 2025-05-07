@@ -32,8 +32,9 @@ const ProductDetailBid = ({ route }) => {
     try {
       await dispatch(placeBid({ productId: product.id, bidAmount: amount, merchantId: user.uid })).unwrap();
       
-      Alert.alert('Success', 'Bid placed successfully');
-      navigation.navigate('ProductList')
+      Alert.alert('Success', 'Bid placed successfully', [
+        { text: 'OK', onPress: () => navigation.goBack() }
+      ]);
     } catch (err) {
       Alert.alert('Error', err);
     }
