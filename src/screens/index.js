@@ -7,8 +7,8 @@ import VerifyEmailScreen from './authenticationScreens/VerifyEmailScreen';
 import UploadProductScreen from './FarmerScreens/UploadProductScreen';
 import NotificationPanel from './commonScreens/NotificationPanel';
 import ProfileScreen from './commonScreens/ProfileScreen';
+import ChatListScreen from './commonScreens/ChatListScreen';
 import ChatScreen from './commonScreens/ChatScreen';
-
 import ProductDetailBid from './MerchantScreens/ProductDetailBid';
 import ProductListScreen from './MerchantScreens/ProductListScreen';
 
@@ -21,8 +21,9 @@ export {
   VerifyEmailScreen,
   UploadProductScreen,
   NotificationPanel,
-  ProfileScreen,
+  ProfileScreen,  
   ChatScreen,
+  ChatListScreen,
   ProductListScreen,
   ProductDetailBid,
 };

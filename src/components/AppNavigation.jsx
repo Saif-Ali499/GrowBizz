@@ -1,9 +1,8 @@
-// src/components/AppNavigation.js
 import React from 'react';
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {createStackNavigator} from '@react-navigation/stack';
-import {useSelector} from 'react-redux';
-import {ActivityIndicator} from 'react-native';
+import { ActivityIndicator } from 'react-native';
+import { useSelector } from 'react-redux';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 import {
@@ -16,6 +15,7 @@ import {
   UploadProductScreen,
   ProfileScreen,
   NotificationPanel,
+  ChatListScreen,
   ChatScreen,
   ProductListScreen,
   ProductDetailBid,
@@ -26,34 +26,49 @@ const Root = createStackNavigator();
 const Bid = createStackNavigator();
 const Upload = createStackNavigator();
 const Notif = createStackNavigator();
+const ChatStack = createStackNavigator();
 
-// Nested merchant‐bid stack
 function MerchantBidStack() {
   return (
-    <Bid.Navigator screenOptions={{headerShown: false, unmountOnBlur: true}}>
+    <Bid.Navigator screenOptions={{ headerShown: false, unmountOnBlur: true }}>
       <Bid.Screen name="ProductList" component={ProductListScreen} />
       <Bid.Screen name="ProductDetailBid" component={ProductDetailBid} />
     </Bid.Navigator>
   );
 }
 
-// Nested farmer‐upload stack
 function FarmerUploadStack() {
   return (
-    <Upload.Navigator screenOptions={{headerShown: false, unmountOnBlur: true}}>
+    <Upload.Navigator screenOptions={{ headerShown: false, unmountOnBlur: true }}>
       <Upload.Screen name="UploadProduct" component={UploadProductScreen} />
       <Upload.Screen name="HomeAfterUpload" component={FarmersHome} />
     </Upload.Navigator>
   );
 }
 
-// Nested notifications stack
 function NotificationStack() {
   return (
-    <Notif.Navigator screenOptions={{headerShown: false, unmountOnBlur: true}}>
+    <Notif.Navigator screenOptions={{ headerShown: false, unmountOnBlur: true }}>
       <Notif.Screen name="NotificationPanel" component={NotificationPanel} />
       <Notif.Screen name="ProductDetailBid" component={ProductDetailBid} />
     </Notif.Navigator>
+  );
+}
+
+function ChatStackScreen() {
+  return (
+    <ChatStack.Navigator screenOptions={{ headerShown: false, unmountOnBlur: true }}>
+      <ChatStack.Screen
+        name="ChatList"
+        component={ChatListScreen}
+        options={{ title: 'Your Chats' }}
+      />
+      <ChatStack.Screen
+        name="ChatScreen"
+        component={ChatScreen}
+        options={({ route }) => ({ title: `Chat with ${route.params.otherId}` })}
+      />
+    </ChatStack.Navigator>
   );
 }
 
@@ -70,105 +85,84 @@ function getIcon(name, focused) {
   const [on, off] = icons[name] || ['ellipse', 'ellipse'];
   return focused ? on : off;
 }
+
 function AppTabs() {
-  const {user} = useSelector(s => s.auth);
+  const { user } = useSelector(s => s.auth);
+
+  // Prevent rendering tabs before user is loaded
+  if (!user) {
+    return <ActivityIndicator size="large" style={{ flex: 1 }} />;
+  }
+
+  const role = user.role?.toLowerCase();
 
   const FarmerTabs = () => (
     <Tab.Navigator
-      screenOptions={({route}) => ({
+      screenOptions={({ route }) => ({
         headerShown: false,
         unmountOnBlur: true,
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: 'tomato',
         tabBarInactiveTintColor: 'gray',
-        tabBarStyle: {backgroundColor: '#fff', paddingBottom: 5, height: 70},
-        tabBarIcon: ({focused, color, size}) => (
-          <Ionicons
-            name={getIcon(route.name, focused)}
-            size={size}
-            color={color}
-          />
+        tabBarStyle: { backgroundColor: '#fff', paddingBottom: 5, height: 70 },
+        tabBarIcon: ({ focused, color, size }) => (
+          <Ionicons name={getIcon(route.name, focused)} size={size} color={color} />
         ),
-      })}>
+      })}
+    >
       <Tab.Screen name="Home" component={FarmersHome} />
       <Tab.Screen name="Notifications" component={NotificationStack} />
       <Tab.Screen name="Upload" component={FarmerUploadStack} />
-      <Tab.Screen name="Chat" component={ChatScreen} />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        
-      />
+      <Tab.Screen name="Chat" component={ChatStackScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 
   const MerchantTabs = () => (
     <Tab.Navigator
-      screenOptions={({route}) => ({
+      screenOptions={({ route }) => ({
         headerShown: false,
         unmountOnBlur: true,
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: 'tomato',
         tabBarInactiveTintColor: 'gray',
-        tabBarStyle: {backgroundColor: '#fff', paddingBottom: 5, height: 70},
-        tabBarIcon: ({focused, color, size}) => (
-          <Ionicons
-            name={getIcon(route.name, focused)}
-            size={size}
-            color={color}
-          />
+        tabBarStyle: { backgroundColor: '#fff', paddingBottom: 5, height: 70 },
+        tabBarIcon: ({ focused, color, size }) => (
+          <Ionicons name={getIcon(route.name, focused)} size={size} color={color} />
         ),
-      })}>
+      })}
+    >
       <Tab.Screen name="Home" component={MerchantsHome} />
       <Tab.Screen name="Bid" component={MerchantBidStack} />
       <Tab.Screen name="Notifications" component={NotificationStack} />
-      <Tab.Screen name="Chat" component={ChatScreen} />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        
-      />
+      <Tab.Screen name="Chat" component={ChatStackScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
-  );      
-
-  // Pick the correct bottom-tabs based on role
-  console.log('User role: ', user?.role); // Debug log to check the role
-  return user.role?.toLowerCase() === 'farmer' ? (
-    <FarmerTabs />
-  ) : (
-    <MerchantTabs />
   );
+
+  return role === 'farmer' ? <FarmerTabs /> : <MerchantTabs />;
 }
 
 export default function AppNavigation() {
-  const {user, loading} = useSelector(s => s.auth);
+  const { user, loading } = useSelector(s => s.auth);
 
   if (loading) {
-    return <ActivityIndicator size="large" style={{flex: 1}} />;
+    return <ActivityIndicator size="large" style={{ flex: 1 }} />;
   }
 
   return (
-   <Root.Navigator screenOptions={{headerShown: false}}>
+    <Root.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
-        user.emailVerified ? (<Root.Screen name="AppTabs" component={AppTabs} />
+        user.emailVerified ? (
+          <Root.Screen name="AppTabs" component={AppTabs} />
         ) : (
-          <Root.Screen
-            name="VerifyEmailScreen"
-            component={VerifyEmailScreen}
-          />
+          <Root.Screen name="VerifyEmail" component={VerifyEmailScreen} />
         )
       ) : (
         <>
-          <Root.Screen
-            name="Login"
-            component={LoginScreen}
-            options={{headerLeft: null}}
-          />
+          <Root.Screen name="Login" component={LoginScreen} options={{ headerLeft: null }} />
           <Root.Screen name="Register" component={RegisterScreen} />
-          <Root.Screen
-            name="ForgotPassword"
-            component={ForgotPasswordScreen}
-          />
+          <Root.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         </>
       )}
     </Root.Navigator>

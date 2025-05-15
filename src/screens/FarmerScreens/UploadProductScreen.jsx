@@ -12,13 +12,14 @@ import {
   Platform,
   ActionSheetIOS,
   PermissionsAndroid,
+  ScrollView,
 } from 'react-native';
+import {Picker} from '@react-native-picker/picker';
 import {useDispatch, useSelector} from 'react-redux';
 import {uploadProduct} from '../../redux/slices/productSlice';
 import {useNavigation} from '@react-navigation/native';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
-import {getApp} from '@react-native-firebase/app';
-import {getStorage, ref, getDownloadURL} from '@react-native-firebase/storage';
+import storage from '@react-native-firebase/storage';
 
 const UploadProductScreen = () => {
   const dispatch = useDispatch();
@@ -31,6 +32,8 @@ const UploadProductScreen = () => {
     description: '',
     startingPrice: '',
     quantity: '',
+    grade: '',
+    unitType: '',
     duration: '',
     images: [],
   });
@@ -115,29 +118,39 @@ const UploadProductScreen = () => {
     }
   };
 
-  const uploadImage = (image, index, total) => {
+  const uploadImage = async (image, index, total) => {
     const filename = image.fileName || `product_${Date.now()}_${index}.jpg`;
-    const storage = getStorage(getApp());
-    const storageRef = ref(storage, `products/${user.uid}/${filename}`);
-    const task = storageRef.putFile(image.uri);
+    const path = `products/${user.uid}/${filename}`;
+    const task = storage().ref(path).putFile(image.uri);
 
     task.on('state_changed', snapshot => {
       const percent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-      const delta = percent / total; // evenly divide by number of images
+      const delta = percent / total;
       setUploadProgress(prev => Math.min(100, prev + delta));
     });
 
-    return task.then(() => getDownloadURL(storageRef));
+    await task;
+    return storage().ref(path).getDownloadURL();
   };
 
   const validateForm = () => {
-    const {name, description, startingPrice, quantity, duration, images} =
-      productData;
+    const {
+      name,
+      description,
+      startingPrice,
+      quantity,
+      duration,
+      images,
+      grade,
+      unitType,
+    } = productData;
     if (
       !name.trim() ||
       !description.trim() ||
       !startingPrice ||
       !quantity ||
+      !grade.trim() ||
+      !unitType ||
       !duration
     ) {
       Alert.alert('Validation Error', 'All fields are required');
@@ -188,6 +201,7 @@ const UploadProductScreen = () => {
   };
 
   return (
+<ScrollView>
     <View style={styles.container}>
       <Text style={styles.title}>Upload Product for Bidding</Text>
       <TextInput
@@ -222,6 +236,24 @@ const UploadProductScreen = () => {
         value={productData.quantity}
         onChangeText={text => setProductData({...productData, quantity: text})}
       />
+      <TextInput
+        style={styles.input}
+        placeholder="Grade (e.g. A, B, C)"
+        value={productData.grade}
+        onChangeText={text => setProductData({...productData, grade: text})}
+      />
+      <View style={styles.pickerWrapper}>
+        <Picker
+          selectedValue={productData.unitType}
+          onValueChange={value =>
+            setProductData({...productData, unitType: value})
+          }>
+          <Picker.Item label="Select Unit" value="" />
+          <Picker.Item label="Kilograms" value="kg" />
+          <Picker.Item label="Boxes" value="box" />
+          <Picker.Item label="Dozens" value="dozen" />
+        </Picker>
+      </View>
       <TextInput
         style={styles.input}
         placeholder="Duration (hours)"
@@ -264,6 +296,7 @@ const UploadProductScreen = () => {
         />
       )}
     </View>
+    </ScrollView>
   );
 };
 
@@ -284,6 +317,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   multiline: {height: 100, textAlignVertical: 'top'},
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    marginBottom: 15,
+    overflow: 'hidden',
+  },
   images: {
     flexDirection: 'row',
     justifyContent: 'space-between',

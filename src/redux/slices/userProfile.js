@@ -5,19 +5,21 @@ import {
   reauthenticateWithCredential,
   EmailAuthProvider,
   updatePassword,
-  updateEmail
+  updateEmail,
 } from '@react-native-firebase/auth';
 import { getFirestore, doc, updateDoc } from '@react-native-firebase/firestore';
+import { getApp } from '@react-native-firebase/app';
 import storage from '@react-native-firebase/storage';
 import { updateUserLocally } from './authSlice';
 
 const auth = getAuth();
 const firestore = getFirestore();
+const app = getApp();
+
 export const updateUserProfile = createAsyncThunk(
   'auth/updateUserProfile',
   async ({ uid, updatedData }, thunkAPI) => {
     try {
-      const firestore = getFirestore();
       const userRef = doc(firestore, 'Users', uid);
       await updateDoc(userRef, updatedData);
 
@@ -31,14 +33,16 @@ export const updateUserProfile = createAsyncThunk(
   }
 );
 
-
 // — reauthenticate & change password —
 export const changePassword = createAsyncThunk(
   'profile/changePassword',
   async ({ currentPassword, newPassword }, thunkAPI) => {
     try {
       const user = auth.currentUser;
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      const credential = EmailAuthProvider.credential(
+        user.email,
+        currentPassword
+      );
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, newPassword);
       return 'Password updated successfully';
@@ -53,11 +57,21 @@ export const uploadProfilePicture = createAsyncThunk(
   'profile/uploadProfilePicture',
   async ({ uid, imageUri }, thunkAPI) => {
     try {
-      const ref = storage().ref(`profile-pictures/${uid}`);
-      await ref.putFile(imageUri);
-      const url = await ref.getDownloadURL();
+      // Use getApp() for storage instance to comply with modular API
+      const storageRef = storage(app).ref(
+        `profile-pictures/${uid}`
+      );
+      // Upload file
+      await storageRef.putFile(imageUri);
+      const url = await storageRef.getDownloadURL();
+
+      // Update Firestore
       const userDoc = doc(firestore, 'Users', uid);
       await updateDoc(userDoc, { profilePicture: url });
+
+      // Update local Redux state immediately
+      thunkAPI.dispatch(updateUserLocally({ profilePicture: url }));
+
       return url;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.message);
@@ -70,31 +84,34 @@ const profileSlice = createSlice({
   initialState: {
     loading: false,
     error: null,
-    success: false
+    success: false,
   },
   reducers: {
-    resetProfileState: state => {
+    resetProfileState: (state) => {
       state.loading = false;
-      state.error   = null;
+      state.error = null;
       state.success = false;
-    }
+    },
   },
-  extraReducers: builder => {
+  extraReducers: (builder) => {
     builder
-      .addMatcher(a => a.type.endsWith('/pending'), state => {
+      .addMatcher((action) => action.type.endsWith('/pending'), (state) => {
         state.loading = true;
-        state.error   = null;
+        state.error = null;
         state.success = false;
       })
-      .addMatcher(a => a.type.endsWith('/rejected'), (state, action) => {
-        state.loading = false;
-        state.error   = action.payload;
-      })
-      .addMatcher(a => a.type.endsWith('/fulfilled'), state => {
+      .addMatcher(
+        (action) => action.type.endsWith('/rejected'),
+        (state, action) => {
+          state.loading = false;
+          state.error = action.payload;
+        }
+      )
+      .addMatcher((action) => action.type.endsWith('/fulfilled'), (state) => {
         state.loading = false;
         state.success = true;
       });
-  }
+  },
 });
 
 export const { resetProfileState } = profileSlice.actions;
