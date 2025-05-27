@@ -19,6 +19,8 @@ import {
   ChatScreen,
   ProductListScreen,
   ProductDetailBid,
+  WalletScreen,
+  FarmerProductList
 } from '../screens';
 
 const Tab = createBottomTabNavigator();
@@ -26,6 +28,7 @@ const Root = createStackNavigator();
 const Bid = createStackNavigator();
 const Upload = createStackNavigator();
 const Notif = createStackNavigator();
+const ProWal = createStackNavigator();
 const ChatStack = createStackNavigator();
 
 function MerchantBidStack() {
@@ -42,16 +45,27 @@ function FarmerUploadStack() {
     <Upload.Navigator screenOptions={{ headerShown: false, unmountOnBlur: true }}>
       <Upload.Screen name="UploadProduct" component={UploadProductScreen} />
       <Upload.Screen name="HomeAfterUpload" component={FarmersHome} />
+      <Upload.Screen name ="FarmerProductList" component={FarmerProductList}/>
     </Upload.Navigator>
   );
 }
-
 function NotificationStack() {
   return (
     <Notif.Navigator screenOptions={{ headerShown: false, unmountOnBlur: true }}>
       <Notif.Screen name="NotificationPanel" component={NotificationPanel} />
       <Notif.Screen name="ProductDetailBid" component={ProductDetailBid} />
     </Notif.Navigator>
+  );
+}
+
+
+
+function ProfileStack() {
+  return (
+    <ProWal.Navigator screenOptions={{ headerShown: false, unmountOnBlur: true }}>
+      <ProWal.Screen name="ProfileScreen" component={ProfileScreen} />
+      <ProWal.Screen name="WalletScreen" component={WalletScreen} />
+    </ProWal.Navigator>
   );
 }
 
@@ -111,10 +125,10 @@ function AppTabs() {
       })}
     >
       <Tab.Screen name="Home" component={FarmersHome} />
-      <Tab.Screen name="Notifications" component={NotificationStack} />
+      <Tab.Screen name="Notifications" component={NotificationPanel} />
       <Tab.Screen name="Upload" component={FarmerUploadStack} />
       <Tab.Screen name="Chat" component={ChatStackScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Profile" component={ProfileStack} />
     </Tab.Navigator>
   );
 
@@ -136,7 +150,7 @@ function AppTabs() {
       <Tab.Screen name="Bid" component={MerchantBidStack} />
       <Tab.Screen name="Notifications" component={NotificationStack} />
       <Tab.Screen name="Chat" component={ChatStackScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Profile" component={ProfileStack} />
     </Tab.Navigator>
   );
 

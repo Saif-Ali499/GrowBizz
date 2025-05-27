@@ -24,7 +24,7 @@ import ImageViewing from 'react-native-image-viewing';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 export default function ChatScreen({ navigation, route }) {
-  const { chatId, otherId } = route.params;
+  const { chatId, otherId, otherUserName, otherUserType } = route.params;
   const dispatch = useDispatch();
   const user = useSelector(state => state.auth.user, shallowEqual);
 
@@ -58,7 +58,13 @@ export default function ChatScreen({ navigation, route }) {
     if (res.assets?.length) {
       const uri = res.assets[0].uri;
       dispatch(
-        sendMessage({ senderId: user.uid, recipientId: otherId, imageUri: uri })
+        sendMessage({ 
+          senderId: user.uid, 
+          recipientId: otherId, 
+          imageUri: uri,
+          senderName: user.name || user.displayName || user.email || 'Unknown User',
+          senderType: user.userType || 'user'
+        })
       );
     }
   };
@@ -66,7 +72,13 @@ export default function ChatScreen({ navigation, route }) {
   const onSend = () => {
     if (!text.trim()) return;
     dispatch(
-      sendMessage({ senderId: user.uid, recipientId: otherId, text })
+      sendMessage({ 
+        senderId: user.uid, 
+        recipientId: otherId, 
+        text,
+        senderName: user.name || user.displayName || user.email || 'Unknown User',
+        senderType: user.userType || 'user'
+      })
     );
     setText('');
   };
@@ -92,14 +104,20 @@ export default function ChatScreen({ navigation, route }) {
   };
 
   useLayoutEffect(() => {
+    // Set header title to show other user's name
+    const headerTitle = otherUserName || `Chat with ${otherId}`;
+    const userTypeEmoji = otherUserType === 'farmer' ? '🌾' : 
+                         otherUserType === 'merchant' ? '🏪' : '';
+    
     navigation.setOptions({
+      title: `${headerTitle} ${userTypeEmoji}`,
       headerRight: () => (
         <TouchableOpacity onPress={onDeleteChat} style={{ padding: 8 }}>
           <Ionicons name="trash-outline" size={24} color="#f00" />
         </TouchableOpacity>
       ),
     });
-  }, [navigation, onDeleteChat]);
+  }, [navigation, onDeleteChat, otherUserName, otherUserType, otherId]);
 
   const renderItem = ({ item }) => (
     <View
@@ -108,7 +126,12 @@ export default function ChatScreen({ navigation, route }) {
         item.senderId === user.uid ? styles.myMsg : styles.theirMsg,
       ]}
     >
-      {item.text ? <Text>{item.text}</Text> : null}
+      {item.senderId !== user.uid && (
+        <Text style={styles.senderName}>
+          {item.senderName || 'Unknown User'}
+        </Text>
+      )}
+      {item.text ? <Text style={styles.messageText}>{item.text}</Text> : null}
       {item.imageUrl ? (
         <TouchableOpacity
           onPress={() => {
@@ -120,6 +143,15 @@ export default function ChatScreen({ navigation, route }) {
           <Image source={{ uri: item.imageUrl }} style={styles.msgImage} />
         </TouchableOpacity>
       ) : null}
+      <Text style={styles.timestamp}>
+        {item.createdAt ? 
+          new Date(item.createdAt.toDate()).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
+          }) : 
+          'Sending...'
+        }
+      </Text>
     </View>
   );
 
@@ -134,16 +166,27 @@ export default function ChatScreen({ navigation, route }) {
           keyExtractor={m => m.id}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12 }}
+          showsVerticalScrollIndicator={false}
         />
         <View style={styles.inputRow}>
-          <Button title="📷" onPress={pickImage} />
+          <TouchableOpacity onPress={pickImage} style={styles.imageButton}>
+            <Ionicons name="camera" size={24} color="#007AFF" />
+          </TouchableOpacity>
           <TextInput
             style={styles.input}
             value={text}
             onChangeText={setText}
             placeholder="Type a message..."
+            multiline
+            maxLength={500}
           />
-          <Button title="Send" onPress={onSend} />
+          <TouchableOpacity 
+            onPress={onSend} 
+            style={[styles.sendButton, !text.trim() && styles.sendButtonDisabled]}
+            disabled={!text.trim()}
+          >
+            <Ionicons name="send" size={20} color={text.trim() ? "#007AFF" : "#ccc"} />
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 
@@ -160,17 +203,27 @@ export default function ChatScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   msgRow: {
     marginVertical: 6,
-    padding: 10,
-    borderRadius: 8,
+    padding: 12,
+    borderRadius: 12,
     maxWidth: '80%',
   },
   myMsg: {
     alignSelf: 'flex-end',
-    backgroundColor: '#DCF8C6',
+    backgroundColor: '#007AFF',
   },
   theirMsg: {
     alignSelf: 'flex-start',
-    backgroundColor: '#FFF',
+    backgroundColor: '#F0F0F0',
+  },
+  senderName: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 4,
+  },
+  messageText: {
+    fontSize: 16,
+    color: '#000',
   },
   msgImage: {
     width: 150,
@@ -178,20 +231,39 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 4,
   },
+  timestamp: {
+    fontSize: 10,
+    color: '#666',
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
+    alignItems: 'flex-end',
+    padding: 12,
     borderTopWidth: 1,
     borderColor: '#eee',
+    backgroundColor: '#fff',
+  },
+  imageButton: {
+    padding: 8,
+    marginRight: 8,
   },
   input: {
     flex: 1,
-    marginHorizontal: 8,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#ddd',
     borderRadius: 20,
-    paddingHorizontal: 12,
-    height: 40,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    maxHeight: 100,
+    fontSize: 16,
+  },
+  sendButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
   },
 });

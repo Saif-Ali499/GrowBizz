@@ -1,0 +1,45 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "Notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",      "order": "ASCENDING" },
+        { "fieldPath": "createdAt",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Products",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "farmerId",               "order": "ASCENDING" },
+        { "fieldPath": "createdAt",              "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Products",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "highestBid.merchantId",  "order": "ASCENDING" },
+        { "fieldPath": "endTime",                "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Products",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",                "order": "ASCENDING" },
+        { "fieldPath": "createdAt",             "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "Transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fromUserId",  "order": "ASCENDING" },
+        { "fieldPath": "createdAt",   "order": "DESCENDING" }
+      ]
+    }
+    
+  ]
+}

@@ -1,4 +1,5 @@
 // src/redux/slices/userProfile.js
+
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import {
   getAuth,
@@ -28,6 +29,7 @@ export const updateUserProfile = createAsyncThunk(
 
       return 'User profile updated successfully';
     } catch (error) {
+      // error.message is always a string
       return thunkAPI.rejectWithValue(error.message);
     }
   }

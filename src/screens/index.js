@@ -11,7 +11,8 @@ import ChatListScreen from './commonScreens/ChatListScreen';
 import ChatScreen from './commonScreens/ChatScreen';
 import ProductDetailBid from './MerchantScreens/ProductDetailBid';
 import ProductListScreen from './MerchantScreens/ProductListScreen';
-
+import WalletScreen from './commonScreens/WalletScreen';
+import FarmerProductList from './FarmerScreens/FarmerProductList'
 export {
   LoginScreen,
   RegisterScreen,
@@ -26,4 +27,7 @@ export {
   ChatListScreen,
   ProductListScreen,
   ProductDetailBid,
+  WalletScreen,
+  FarmerProductList
+
 };

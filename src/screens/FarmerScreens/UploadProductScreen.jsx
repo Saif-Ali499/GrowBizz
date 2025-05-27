@@ -1,3 +1,5 @@
+// screens/UploadProductScreen.jsx
+
 import React, {useState, useEffect} from 'react';
 import {
   View,
@@ -20,13 +22,19 @@ import {uploadProduct} from '../../redux/slices/productSlice';
 import {useNavigation} from '@react-navigation/native';
 import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
 import storage from '@react-native-firebase/storage';
+import {getAuth} from '@react-native-firebase/auth';
 
 const UploadProductScreen = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation();
-  const {user} = useSelector(state => state.auth);
-  const {loading, error} = useSelector(state => state.products);
+  const auth = getAuth();
+  const user = auth.currentUser;
 
+  // Extract upload‐specific flags from Redux
+  const uploadStatus = useSelector(state => state.products.uploadStatus);
+  const uploadError = useSelector(state => state.products.uploadError);
+
+  // Local form state
   const [productData, setProductData] = useState({
     name: '',
     description: '',
@@ -35,16 +43,18 @@ const UploadProductScreen = () => {
     grade: '',
     unitType: '',
     duration: '',
-    images: [],
+    images: [null, null], // Exactly two slots (you can expand if you want more)
   });
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  // If Redux uploadError changes, show an Alert
   useEffect(() => {
-    if (error) {
-      Alert.alert('Upload Error', error);
+    if (uploadError) {
+      Alert.alert('Upload Error', uploadError);
     }
-  }, [error]);
+  }, [uploadError]);
 
+  // Request camera permission on Android
   const requestCameraPermission = async () => {
     if (Platform.OS !== 'android') return true;
     try {
@@ -64,8 +74,10 @@ const UploadProductScreen = () => {
     }
   };
 
+  // Show ActionSheet on iOS or Alert on Android to pick source
   const selectImage = async index => {
     const options = {mediaType: 'photo', quality: 0.8, selectionLimit: 1};
+
     const handleSelection = async source => {
       try {
         let result;
@@ -90,7 +102,7 @@ const UploadProductScreen = () => {
         }
         if (result.assets?.length > 0) {
           const updated = [...productData.images];
-          updated[index] = result.assets[0];
+          updated[index] = result.assets[0]; // includes { uri, fileName, etc. }
           setProductData({...productData, images: updated});
         }
       } catch (err) {
@@ -118,21 +130,32 @@ const UploadProductScreen = () => {
     }
   };
 
-  const uploadImage = async (image, index, total) => {
-    const filename = image.fileName || `product_${Date.now()}_${index}.jpg`;
-    const path = `products/${user.uid}/${filename}`;
-    const task = storage().ref(path).putFile(image.uri);
+  /**
+   * Upload a single image file to Firebase Storage.
+   * Returns a download URL string.
+   */
+  const uploadImage = async (imageAsset, index, totalImages) => {
+    // imageAsset.uri is a file:// URI on the device
+    const filename =
+      imageAsset.fileName || `product_${Date.now()}_${index}.jpg`;
+    const path = `products/${user.uid}/${filename}`; // e.g. "products/uid/abc123.jpg"
+    const task = storage().ref(path).putFile(imageAsset.uri);
 
+    // Listen for state changes and update progress
     task.on('state_changed', snapshot => {
       const percent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-      const delta = percent / total;
+      // Distribute total progress equally among all images
+      const delta = percent / totalImages;
       setUploadProgress(prev => Math.min(100, prev + delta));
     });
 
-    await task;
+    await task; // wait for upload to finish
     return storage().ref(path).getDownloadURL();
   };
 
+  /**
+   * Validate the form before uploading.
+   */
   const validateForm = () => {
     const {
       name,
@@ -144,6 +167,7 @@ const UploadProductScreen = () => {
       grade,
       unitType,
     } = productData;
+
     if (
       !name.trim() ||
       !description.trim() ||
@@ -156,152 +180,195 @@ const UploadProductScreen = () => {
       Alert.alert('Validation Error', 'All fields are required');
       return false;
     }
-    if (images.length < 2) {
-      Alert.alert('Validation Error', 'Please upload at least 2 images');
+    if (images.filter(img => img !== null).length < 2) {
+      Alert.alert('Validation Error', 'Please upload both images');
       return false;
     }
     if (isNaN(startingPrice) || isNaN(quantity) || isNaN(duration)) {
       Alert.alert(
         'Validation Error',
-        'Price, quantity, and duration must be numbers',
+        'Price, quantity, and duration must be valid numbers',
       );
       return false;
     }
     return true;
   };
 
+  /**
+   * Main handler for “Upload Product” button.
+   */
   const handleUpload = async () => {
     if (!validateForm()) return;
+
     try {
       setUploadProgress(0);
-      const total = productData.images.length;
+      const validImages = productData.images.filter(img => img !== null);
+      const total = validImages.length;
+
+      // 1) Upload each image to Storage, collect URLs
       const urls = await Promise.all(
-        productData.images.map((img, i) => uploadImage(img, i, total)),
+        validImages.map((img, idx) => uploadImage(img, idx, total)),
       );
+
+      // 2) Dispatch the uploadProduct thunk
       await dispatch(
         uploadProduct({
           farmerId: user.uid,
           productData: {
-            ...productData,
+            name: productData.name,
+            description: productData.description,
             startingPrice: parseFloat(productData.startingPrice),
             quantity: parseInt(productData.quantity, 10),
+            grade: productData.grade,
+            unitType: productData.unitType,
             duration: parseInt(productData.duration, 10),
-            images: urls,
+            images: urls, // array of “https://…” URLs
           },
         }),
       ).unwrap();
+
       setUploadProgress(100);
       Alert.alert('Success', 'Product uploaded for bidding!');
       navigation.navigate('HomeAfterUpload');
     } catch (err) {
-      Alert.alert('Upload Failed', err.message || err);
+      Alert.alert('Upload Failed', err.message || String(err));
     } finally {
       setUploadProgress(0);
     }
   };
 
   return (
-<ScrollView>
-    <View style={styles.container}>
-      <Text style={styles.title}>Upload Product for Bidding</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Product Name"
-        value={productData.name}
-        onChangeText={text => setProductData({...productData, name: text})}
-      />
-      <TextInput
-        style={[styles.input, styles.multiline]}
-        placeholder="Product Description"
-        multiline
-        numberOfLines={4}
-        value={productData.description}
-        onChangeText={text =>
-          setProductData({...productData, description: text})
-        }
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Starting Price"
-        keyboardType="numeric"
-        value={productData.startingPrice}
-        onChangeText={text =>
-          setProductData({...productData, startingPrice: text})
-        }
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Quantity"
-        keyboardType="numeric"
-        value={productData.quantity}
-        onChangeText={text => setProductData({...productData, quantity: text})}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Grade (e.g. A, B, C)"
-        value={productData.grade}
-        onChangeText={text => setProductData({...productData, grade: text})}
-      />
-      <View style={styles.pickerWrapper}>
-        <Picker
-          selectedValue={productData.unitType}
-          onValueChange={value =>
-            setProductData({...productData, unitType: value})
-          }>
-          <Picker.Item label="Select Unit" value="" />
-          <Picker.Item label="Kilograms" value="kg" />
-          <Picker.Item label="Boxes" value="box" />
-          <Picker.Item label="Dozens" value="dozen" />
-        </Picker>
-      </View>
-      <TextInput
-        style={styles.input}
-        placeholder="Duration (hours)"
-        keyboardType="numeric"
-        value={productData.duration}
-        onChangeText={text => setProductData({...productData, duration: text})}
-      />
-      <View style={styles.images}>
-        {[0, 1].map(i => (
-          <TouchableOpacity
-            key={i}
-            style={styles.imageBtn}
-            onPress={() => selectImage(i)}>
-            {productData.images[i] ? (
-              <Image
-                source={{uri: productData.images[i].uri}}
-                style={styles.preview}
-              />
-            ) : (
-              <Text style={styles.placeholder}>Tap to add {i + 1}</Text>
-            )}
-          </TouchableOpacity>
-        ))}
-      </View>
-      {uploadProgress > 0 && (
-        <View style={styles.progressWrap}>
-          <Text>Upload Progress: {Math.round(uploadProgress)}%</Text>
-          <View style={styles.bar}>
-            <View style={[styles.fill, {width: `${uploadProgress}%`}]} />
-          </View>
-        </View>
-      )}
-      {loading ? (
-        <ActivityIndicator size="large" />
-      ) : (
-        <Button
-          title="Upload Product"
-          onPress={handleUpload}
-          disabled={uploadProgress > 0}
+    <ScrollView contentContainerStyle={{flexGrow: 1, backgroundColor: '#fff'}}>
+      <TouchableOpacity
+        style={styles.productListButton}
+        onPress={() => navigation.navigate('FarmerProductList')}>
+        <Text style={styles.productListText}>Your Products</Text>
+      </TouchableOpacity>
+      <View style={styles.container}>
+        <Text style={styles.title}>Upload Product for Bidding</Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Product Name"
+          value={productData.name}
+          onChangeText={text => setProductData({...productData, name: text})}
         />
-      )}
-    </View>
+
+        <TextInput
+          style={[styles.input, styles.multiline]}
+          placeholder="Product Description"
+          multiline
+          numberOfLines={4}
+          value={productData.description}
+          onChangeText={text =>
+            setProductData({...productData, description: text})
+          }
+        />
+
+        <View style={styles.pickerWrapper}>
+          <Picker
+            selectedValue={productData.unitType}
+            onValueChange={value =>
+              setProductData({...productData, unitType: value})
+            }>
+            <Picker.Item label="Select Unit of Quantity" value="" />
+            <Picker.Item label="Kilograms" value="kg" />
+            <Picker.Item label="Boxes" value="box" />
+            <Picker.Item label="Dozens" value="dozen" />
+          </Picker>
+        </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Quantity"
+          keyboardType="numeric"
+          value={productData.quantity}
+          onChangeText={text =>
+            setProductData({...productData, quantity: text})
+          }
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="Grade (e.g. A, B, C)"
+          value={productData.grade}
+          onChangeText={text => setProductData({...productData, grade: text})}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Starting Price For Whole Quantity (₹)"
+          keyboardType="numeric"
+          value={productData.startingPrice}
+          onChangeText={text =>
+            setProductData({...productData, startingPrice: text})
+          }
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="Set Bidding Duration (hours)"
+          keyboardType="numeric"
+          value={productData.duration}
+          onChangeText={text =>
+            setProductData({...productData, duration: text})
+          }
+        />
+
+        <View style={styles.images}>
+          {[0, 1].map(i => (
+            <TouchableOpacity
+              key={i}
+              style={styles.imageBtn}
+              onPress={() => selectImage(i)}>
+              {productData.images[i] ? (
+                <Image
+                  source={{uri: productData.images[i].uri}}
+                  style={styles.preview}
+                />
+              ) : (
+                <Text style={styles.placeholder}>Tap to add image {i+1}</Text>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {uploadProgress > 0 && (
+          <View style={styles.progressWrap}>
+            <Text>Upload Progress: {Math.round(uploadProgress)}%</Text>
+            <View style={styles.bar}>
+              <View style={[styles.fill, {width: `${uploadProgress}%`}]} />
+            </View>
+          </View>
+        )}
+
+        {uploadStatus === 'pending' ? (
+          <ActivityIndicator size="large" color="#007AFF" />
+        ) : (
+          <Button
+            title="Upload Product"
+            onPress={handleUpload}
+            disabled={uploadProgress > 0}
+          />
+        )}
+      </View>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {flex: 1, padding: 20, backgroundColor: '#fff'},
+  productListButton: {
+    marginTop: 10,
+    height: 50,
+    backgroundColor: 'orange',
+    width: 200,
+    alignSelf: 'center',
+    padding: 10,
+  },
+  productListText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -341,8 +408,17 @@ const styles = StyleSheet.create({
   preview: {width: '100%', height: '100%', borderRadius: 5},
   placeholder: {color: '#888'},
   progressWrap: {marginBottom: 20},
-  bar: {height: 10, backgroundColor: '#eee', borderRadius: 5, marginTop: 5},
-  fill: {height: '100%', backgroundColor: '#4CAF50', borderRadius: 5},
+  bar: {
+    height: 10,
+    backgroundColor: '#eee',
+    borderRadius: 5,
+    marginTop: 5,
+  },
+  fill: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+    borderRadius: 5,
+  },
 });
 
 export default UploadProductScreen;
