@@ -23,10 +23,17 @@ import {
   clearBidStatus,
   clearProductReceivedStatus,
 } from '../../redux/slices/productSlice';
+import {
+  submitRating,
+  checkRatingEligibility,
+  clearRatingState,
+} from '../../redux/slices/ratingSlice';
 import {useNavigation, useIsFocused} from '@react-navigation/native';
 import {getApp} from '@react-native-firebase/app';
 import {getFirestore, doc, getDoc} from '@react-native-firebase/firestore';
 import ImageViewing from 'react-native-image-viewing';
+import RatingModal from '../../components/RatingModel';
+import UserRatingsDisplay from '../../components/UserRatingsDisplay';
 
 const {width, height} = Dimensions.get('window');
 const app = getApp();
@@ -34,7 +41,7 @@ const db = getFirestore(app);
 
 const ProductDetailBid = ({route}) => {
   const navigation = useNavigation();
-  const isFocused = useIsFocused(); // ← tracks if this screen is in front
+  const isFocused = useIsFocused();
   const dispatch = useDispatch();
   const {user} = useSelector(state => state.auth);
   const bidStatus = useSelector(state => state.products.bidStatus);
@@ -45,6 +52,9 @@ const ProductDetailBid = ({route}) => {
   const productReceivedError = useSelector(
     state => state.products.productReceivedError,
   );
+  
+  // Rating state
+  const { loading: ratingLoading, success: ratingSuccess, canRate, hasRated } = useSelector(state => state.rating);
 
   const {product} = route.params;
   const [bidAmount, setBidAmount] = useState('');
@@ -52,6 +62,8 @@ const ProductDetailBid = ({route}) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [farmer, setFarmer] = useState(product.farmer || null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [productDeliveryConfirmed, setProductDeliveryConfirmed] = useState(false);
 
   // Keep a ref to know if component is mounted
   const mountedRef = useRef(false);
@@ -62,8 +74,20 @@ const ProductDetailBid = ({route}) => {
       // Clear statuses when unmounting
       dispatch(clearBidStatus());
       dispatch(clearProductReceivedStatus());
+      dispatch(clearRatingState());
     };
   }, [dispatch]);
+
+  // Check rating eligibility when component mounts
+  useEffect(() => {
+    if (user && product && farmer) {
+      dispatch(checkRatingEligibility({
+        productId: product.id,
+        fromUserId: user.uid,
+        toUserId: product.farmerId
+      }));
+    }
+  }, [user, product, farmer, dispatch]);
 
   // Fetch farmer details if not already passed in product
   useEffect(() => {
@@ -74,7 +98,12 @@ const ProductDetailBid = ({route}) => {
           const snap = await getDoc(farmerRef);
           if (snap.exists()) {
             const data = snap.data();
-            setFarmer({name: data.userName, email: data.email});
+            setFarmer({
+              id: product.farmerId,
+              name: data.userName, 
+              email: data.email,
+              role: data.role || 'farmer'
+            });
           }
         } catch (e) {
           console.error('Error fetching farmer details:', e);
@@ -103,8 +132,6 @@ const ProductDetailBid = ({route}) => {
     if (!mountedRef.current || !isFocused) return;
 
     if (bidStatus === 'succeeded') {
-      // If you navigate away, wait until transition ends before alert
-      // so the Activity is attached.
       InteractionManager.runAfterInteractions(() => {
         Alert.alert('Success', 'Bid placed successfully', [
           {
@@ -134,12 +161,24 @@ const ProductDetailBid = ({route}) => {
 
     if (productReceivedStatus === 'succeeded') {
       InteractionManager.runAfterInteractions(() => {
+        setProductDeliveryConfirmed(true);
         Alert.alert(
           'Success',
           'Product delivery confirmed. Payment released to farmer!',
           [
             {
-              text: 'OK',
+              text: 'Rate Farmer',
+              onPress: () => {
+                if (mountedRef.current && isFocused) {
+                  dispatch(clearProductReceivedStatus());
+                  // Show rating modal
+                  setShowRatingModal(true);
+                }
+              },
+            },
+            {
+              text: 'Skip Rating',
+              style: 'cancel',
               onPress: () => {
                 if (mountedRef.current && isFocused) {
                   dispatch(clearProductReceivedStatus());
@@ -160,14 +199,30 @@ const ProductDetailBid = ({route}) => {
     }
   }, [productReceivedStatus, productReceivedError, isFocused, dispatch]);
 
+  // Handle rating success
+  useEffect(() => {
+    if (ratingSuccess) {
+      Alert.alert('Success', 'Rating submitted successfully!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            dispatch(clearRatingState());
+            setShowRatingModal(false);
+            navigation.goBack();
+          },
+        },
+      ]);
+    }
+  }, [ratingSuccess, dispatch, navigation]);
+
   // Called when user taps "Place Bid."
   const submitBid = async () => {
     if(timeLeft<=0){
       Alert.alert("Bid Time Ends")
+      return;
     }
     const amount = parseFloat(bidAmount);
     if (isNaN(amount) || amount <= currentPrice) {
-      // Show validation Errors only if screen is focused & mounted
       if (mountedRef.current && isFocused) {
         Alert.alert(
           'Invalid Bid',
@@ -176,7 +231,6 @@ const ProductDetailBid = ({route}) => {
       }
       return;
     }
-    // Dispatch the thunk
     dispatch(
       placeBid({
         productId: product.id,
@@ -209,6 +263,21 @@ const ProductDetailBid = ({route}) => {
     );
   };
 
+  // Handle rating submission
+  const handleRatingSubmit = (rating, review) => {
+    if (!farmer) return;
+
+    dispatch(submitRating({
+      productId: product.id,
+      fromUserId: user.uid,
+      toUserId: farmer.id,
+      fromRole: user.role || 'merchant',
+      toRole: farmer.role || 'farmer',
+      rating,
+      review
+    }));
+  };
+
   // Open chat to farmer
   const handleChat = () => {
     if (!product.farmerId) {
@@ -237,6 +306,9 @@ const ProductDetailBid = ({route}) => {
   const canConfirmDelivery =
     isWinningBidder && isBidAccepted && !isProductDelivered;
 
+  // Show rating button if product is delivered and user can rate
+  const canShowRatingButton = isWinningBidder && isProductDelivered && canRate && !hasRated;
+
   return (
     <View style={styles.wrapper}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -255,8 +327,9 @@ const ProductDetailBid = ({route}) => {
 
         <Text style={styles.name}>{product.name}</Text>
         <Text style={styles.label}>Current Price: ₹{currentPrice}</Text>
-        <Text style={styles.label}>Time Left: {timeLeft} min</Text>
-
+        {product.status === 'active'?
+        (<Text style={styles.label}>Time Left: {timeLeft} min</Text>):""
+        }
         {/* Product status information */}
         <View style={styles.statusContainer}>
           <Text style={styles.statusLabel}>Status: </Text>
@@ -295,8 +368,6 @@ const ProductDetailBid = ({route}) => {
                 <Text style={styles.buttonText}>Place Bid</Text>
               )}
             </TouchableOpacity>
-
-           
           </>
         )}
 
@@ -325,16 +396,31 @@ const ProductDetailBid = ({route}) => {
             </Text>
           </View>
         )}
- <ScrollView style = {styles.description}>
-              <Text style={styles.label}>Details</Text>
-              
-              <Text>Quantity: -  {product.quantity} ({product.unitType}es)</Text>
-              <Text>Grade: -  {product.grade}</Text>
-              <Text>Base Price: -  {product.startingPrice}</Text>
-              <Text>{details}</Text>
 
-              
-            </ScrollView>
+        {/* Show rating button if eligible */}
+        {canShowRatingButton && (
+          <TouchableOpacity
+            style={styles.ratingButton}
+            onPress={() => setShowRatingModal(true)}>
+            <Text style={styles.buttonText}>Rate Farmer</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Show if already rated */}
+        {isWinningBidder && isProductDelivered && hasRated && (
+          <View style={styles.ratedContainer}>
+            <Text style={styles.ratedText}>✓ You have rated this farmer</Text>
+          </View>
+        )}
+
+        <ScrollView style={styles.description}>
+          <Text style={styles.label}>Details</Text>
+          <Text>Quantity: -  {product.quantity} ({product.unitType}es)</Text>
+          <Text>Grade: -  {product.grade}</Text>
+          <Text>Base Price: -  {product.startingPrice}</Text>
+          <Text>{details}</Text>
+        </ScrollView>
+
         <TouchableOpacity
           onPress={() => setShowFarmerDetails(p => !p)}
           style={styles.toggleButton}>
@@ -348,6 +434,14 @@ const ProductDetailBid = ({route}) => {
             <View style={styles.farmerDetails}>
               <Text style={styles.label}>Name: {farmer.name}</Text>
               <Text style={styles.label}>Email: {farmer.email}</Text>
+              
+              {/* Show farmer's ratings */}
+              <UserRatingsDisplay 
+                userId={farmer.id} 
+                showTitle={true}
+                maxItems={3}
+              />
+              
               <TouchableOpacity style={styles.chatButton} onPress={handleChat}>
                 <Text style={styles.buttonText}>Chat with Farmer</Text>
               </TouchableOpacity>
@@ -356,6 +450,16 @@ const ProductDetailBid = ({route}) => {
             <Text style={styles.loadingText}>Loading farmer details...</Text>
           ))}
       </ScrollView>
+
+      {/* Rating Modal */}
+      <RatingModal
+        visible={showRatingModal}
+        onClose={() => setShowRatingModal(false)}
+        onSubmit={handleRatingSubmit}
+        recipientName={farmer?.name || 'Farmer'}
+        recipientRole="farmer"
+        loading={ratingLoading}
+      />
 
       <ImageViewing
         images={product.images.map(uri => ({uri}))}
@@ -384,8 +488,9 @@ const styles = StyleSheet.create({
     padding: 10,
     marginVertical: 15,
   },
-  description:{
-    height:200
+  description: {
+    height: 200,
+    width: '100%',
   },
   toggleButton: {
     marginTop: 15,
@@ -424,6 +529,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
+  ratingButton: {
+    marginTop: 15,
+    backgroundColor: '#ffc107',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    width: '100%',
+  },
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -456,6 +569,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#555',
     marginTop: 5,
+  },
+  ratedContainer: {
+    marginTop: 15,
+    backgroundColor: '#fff3cd',
+    padding: 15,
+    borderRadius: 5,
+    borderColor: '#ffc107',
+    borderWidth: 1,
+    width: '100%',
+    alignItems: 'center',
+  },
+  ratedText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#856404',
   },
 });
 

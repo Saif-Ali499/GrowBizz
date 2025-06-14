@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
   View,
   RefreshControl,
-  Alert
+  Alert,
+  SafeAreaView
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { setupChatListeners, clearChatError } from '../../redux/slices/chatSlice';
@@ -118,7 +119,7 @@ export default function ChatListScreen() {
               };
             }
           } catch (error) {
-            console.error('Error fetching user details for', userId, ':', error);
+            // console.error('Error fetching user details for', userId, ':', error);
             newUserDetails[userId] = {
               name: 'Unknown User',
               email: '',

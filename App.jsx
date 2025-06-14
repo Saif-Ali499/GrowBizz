@@ -16,6 +16,7 @@ import {
 import { cleanupListeners } from './src/redux/slices/productSlice'; // _action_ from slice
 import { cleanupNotificationListeners as cleanupNotifState } from './src/redux/slices/productSlice'; // if you defined an action
 
+import { SafeAreaView } from 'react-native-safe-area-context';
 function MainApp() {
   const dispatch = useDispatch();
   const user = useSelector(state => state.auth.user);
@@ -75,7 +76,10 @@ function MainApp() {
 export default function App() {
   return (
     <Provider store={store}>
+      <SafeAreaView style={{ flex: 1 }}>
+       
       <MainApp />
+      </SafeAreaView>
     </Provider>
   );
 }

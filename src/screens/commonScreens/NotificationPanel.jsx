@@ -144,7 +144,10 @@ const NotificationPanel = () => {
         // All other product-related notifications
         const prod = products.find((p) => p.id === item.productId);
         if (prod) {
+          if(user.role ==='Farmer') {
+          }else{
           navigation.navigate('ProductDetailBid', { product: prod });
+          }
         } else {
           Alert.alert(
             'Product Not Found',

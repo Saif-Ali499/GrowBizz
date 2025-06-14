@@ -1,6 +1,6 @@
 // src/screens/ProfileScreen.js
 
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -11,37 +11,40 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
-import { useNavigation } from '@react-navigation/native';
+import {useSelector, useDispatch} from 'react-redux';
+import {useNavigation} from '@react-navigation/native';
 import * as ImagePicker from 'react-native-image-picker';
 
 // ─── IMPORTS ───────────────────────────────────────────────────────────────────
-// 1) updateUserProfile comes from userProfile.js (not authSlice)
-// 2) fetchUserData, logoutUser stay in authSlice
 import {
   uploadProfilePicture,
   changePassword,
   resetProfileState,
-  updateUserProfile,      // ← correct slice is `redux/slices/userProfile.js`
+  updateUserProfile,
 } from '../../redux/slices/userProfileSlice';
 
-import {
-  fetchUserData,
-  logoutUser,
-} from '../../redux/slices/authSlice';
+import {fetchUserData, logoutUser} from '../../redux/slices/authSlice';
 
 import {
   fetchWalletDetails,
   addMoneyToWallet,
 } from '../../redux/slices/walletSlice';
 
+import {
+  fetchUserRatings,
+  getUserAverageRating,
+} from '../../redux/slices/ratingSlice';
+
+import UserRatingsDisplay from '../../components/UserRatingsDisplay';
+
 const ProfileScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
 
-  const { user } = useSelector((state) => state.auth);
-  const { loading, error, success } = useSelector((state) => state.profile);
-  const { balance, frozenBalance } = useSelector((state) => state.wallet);
+  const {user} = useSelector(state => state.auth);
+  const {loading, error, success} = useSelector(state => state.profile);
+  const {balance, frozenBalance} = useSelector(state => state.wallet);
+  const {averageRating, totalRatings} = useSelector(state => state.rating);
 
   const [editMode, setEditMode] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
@@ -63,7 +66,7 @@ const ProfileScreen = () => {
     }
   }, [user?.emailVerified, navigation]);
 
-  // ─── INITIALIZE FORM ─────────────────────────────────────────────────────────
+  // ─── INITIALIZE FORM & LOAD RATINGS ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (user) {
       setFormData({
@@ -74,6 +77,10 @@ const ProfileScreen = () => {
         confirmPassword: '',
       });
       dispatch(fetchWalletDetails());
+
+      // Load user ratings
+      dispatch(fetchUserRatings({userId: user.uid}));
+      dispatch(getUserAverageRating({userId: user.uid}));
     }
   }, [user, dispatch]);
 
@@ -94,26 +101,24 @@ const ProfileScreen = () => {
         uploadProfilePicture({
           uid: user.uid,
           imageUri: res.assets[0].uri,
-        })
+        }),
       );
     }
   };
 
   const handleUpdateProfile = async () => {
     try {
-      // Only updating userName, not touching email:
       await dispatch(
         updateUserProfile({
           uid: user.uid,
-          updatedData: { userName: formData.userName },
-        })
+          updatedData: {userName: formData.userName},
+        }),
       ).unwrap();
 
       Alert.alert('Success', 'Profile updated');
       dispatch(fetchUserData(user.uid));
       setEditMode(false);
     } catch (err) {
-      // Ensure `err` is a string before showing in Alert
       let message = '';
       if (typeof err === 'string') {
         message = err;
@@ -134,7 +139,7 @@ const ProfileScreen = () => {
       changePassword({
         currentPassword: formData.currentPassword,
         newPassword: formData.newPassword,
-      })
+      }),
     );
     setShowPasswordForm(false);
   };
@@ -147,7 +152,7 @@ const ProfileScreen = () => {
     }
 
     try {
-      await dispatch(addMoneyToWallet({ amount: numAmount })).unwrap();
+      await dispatch(addMoneyToWallet({amount: numAmount})).unwrap();
       setShowAddMoneyForm(false);
       setAddMoneyAmount('');
       Alert.alert('Success', 'Money added to wallet successfully');
@@ -173,11 +178,13 @@ const ProfileScreen = () => {
     <ScrollView style={styles.scrollContainer}>
       <View style={styles.container}>
         {/* Profile Picture */}
-        <TouchableOpacity onPress={handleImageUpload}>
+        <TouchableOpacity
+          onPress={handleImageUpload}
+          style={{borderWidth: 1, borderRadius: 75, marginBottom: 20}}>
           <Image
             source={
               user?.profilePicture
-                ? { uri: user.profilePicture }
+                ? {uri: user.profilePicture}
                 : require('../../assets/Images/defaultImg.png')
             }
             style={styles.profileImage}
@@ -190,8 +197,8 @@ const ProfileScreen = () => {
             <TextInput
               style={styles.input}
               value={formData.userName}
-              onChangeText={(val) =>
-                setFormData((prev) => ({ ...prev, userName: val }))
+              onChangeText={val =>
+                setFormData(prev => ({...prev, userName: val}))
               }
               placeholder="Username"
             />
@@ -201,40 +208,97 @@ const ProfileScreen = () => {
               value={formData.email}
               placeholder="Email"
               keyboardType="email-address"
-              editable={false} // we do not allow editing email here
+              editable={false}
             />
           </View>
         ) : (
           <View style={styles.infoContainer}>
             <Text style={styles.name}>{user?.userName}</Text>
             <Text style={styles.email}>{user?.email}</Text>
+
+            {/* User Role Badge */}
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleText}>
+                {user?.role === 'Farmer' ? '🌾 Farmer' : '🏪 Merchant'}
+              </Text>
+            </View>
           </View>
         )}
 
         {/* Edit / Save Buttons */}
         <View style={styles.buttonRow}>
-          {editMode ? (
+          
+          {editMode ||showPasswordForm?(
+            editMode?(
             <>
               <TouchableOpacity
                 style={styles.button}
-                onPress={handleUpdateProfile}
-              >
+                onPress={handleUpdateProfile}>
                 <Text style={styles.buttonText}>Save</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.cancel]}
-                onPress={() => setEditMode(false)}
-              >
+                onPress={() => setEditMode(false)}>
                 <Text style={styles.buttonText}>Cancel</Text>
               </TouchableOpacity>
             </>
+            ):(showPasswordForm && (
+          <View style={styles.formContainer}>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              placeholder="Current Password"
+              value={formData.currentPassword}
+              onChangeText={val =>
+                setFormData(prev => ({...prev, currentPassword: val}))
+              }
+            />
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              placeholder="New Password"
+              value={formData.newPassword}
+              onChangeText={val =>
+                setFormData(prev => ({...prev, newPassword: val}))
+              }
+            />
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              placeholder="Confirm New Password"
+              value={formData.confirmPassword}
+              onChangeText={val =>
+                setFormData(prev => ({...prev, confirmPassword: val}))
+              }
+            />
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={handleChangePassword}>
+                <Text style={styles.buttonText}>Update</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.cancel]}
+                onPress={() => setShowPasswordForm(false)}>
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))
           ) : (
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => setEditMode(true)}
-            >
+            <View  style={{flex:2,flexDirection:'row', justifyContent:'space-around'}}>
+              <TouchableOpacity
+              style={styles.editBtn}
+              onPress={() => setEditMode(true)}>
               <Text style={styles.buttonText}>Edit Profile</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+          style={styles.editBtn}
+          onPress={() => setShowPasswordForm(true)}>
+          <Text style={styles.buttonText}>Change Password</Text>
+        </TouchableOpacity>
+            </View>
+            
           )}
         </View>
 
@@ -262,9 +326,8 @@ const ProfileScreen = () => {
 
           <View style={styles.walletButtonRow}>
             <TouchableOpacity
-              style={[styles.walletButton, { backgroundColor: '#2196F3' }]}
-              onPress={navigateToFullWallet}
-            >
+              style={[styles.walletButton, {backgroundColor: '#2196F3'}]}
+              onPress={navigateToFullWallet}>
               <Text style={styles.buttonText}>Wallet Details</Text>
             </TouchableOpacity>
           </View>
@@ -282,76 +345,30 @@ const ProfileScreen = () => {
               onChangeText={setAddMoneyAmount}
             />
             <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={styles.button}
-                onPress={handleAddMoney}
-              >
+              <TouchableOpacity style={styles.button} onPress={handleAddMoney}>
                 <Text style={styles.buttonText}>Add</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.cancel]}
-                onPress={() => setShowAddMoneyForm(false)}
-              >
+                onPress={() => setShowAddMoneyForm(false)}>
                 <Text style={styles.buttonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* Change Password Toggle */}
-        <TouchableOpacity
-          style={styles.passwordBtn}
-          onPress={() => setShowPasswordForm(true)}
-        >
-          <Text style={styles.buttonText}>Change Password</Text>
-        </TouchableOpacity>
+        
+        
 
-        {/* Password Form */}
-        {showPasswordForm && (
-          <View style={styles.formContainer}>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              placeholder="Current Password"
-              value={formData.currentPassword}
-              onChangeText={(val) =>
-                setFormData((prev) => ({ ...prev, currentPassword: val }))
-              }
-            />
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              placeholder="New Password"
-              value={formData.newPassword}
-              onChangeText={(val) =>
-                setFormData((prev) => ({ ...prev, newPassword: val }))
-              }
-            />
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              placeholder="Confirm New Password"
-              value={formData.confirmPassword}
-              onChangeText={(val) =>
-                setFormData((prev) => ({ ...prev, confirmPassword: val }))
-              }
-            />
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={styles.button}
-                onPress={handleChangePassword}
-              >
-                <Text style={styles.buttonText}>Update</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.cancel]}
-                onPress={() => setShowPasswordForm(false)}
-              >
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+       
+        {/* Ratings Display Section */}
+        <View style={styles.ratingContainer}>
+          <UserRatingsDisplay
+            userId={user?.uid}
+            showTitle={true}
+            maxItems={3} // Show first 3 reviews on profile
+          />
+        </View>
 
         {/* Logout */}
         <TouchableOpacity onPress={handleLogout} style={styles.signOutLink}>
@@ -375,7 +392,6 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 75,
-    marginBottom: 20,
   },
   formContainer: {
     width: '100%',
@@ -392,6 +408,19 @@ const styles = StyleSheet.create({
   email: {
     fontSize: 16,
     color: '#666',
+    marginBottom: 8,
+  },
+  roleBadge: {
+    backgroundColor: '#e8f5e9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 8,
+  },
+  roleText: {
+    fontSize: 14,
+    color: '#2e7d32',
+    fontWeight: '600',
   },
   input: {
     width: '100%',
@@ -420,10 +449,10 @@ const styles = StyleSheet.create({
   cancel: {
     backgroundColor: '#ff4444',
   },
-  passwordBtn: {
+  editBtn:{
     backgroundColor: '#4CAF50',
     padding: 10,
-    width: '100%',
+    width: '40%',
     borderRadius: 5,
     alignItems: 'center',
     marginTop: 10,
@@ -518,6 +547,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 15,
     color: '#333',
+  },
+  ratingContainer: {
+    width: '100%',
+    marginHorizontal: 5,
   },
 });
 
